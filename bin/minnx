@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var Group = require('../');
+var minimist = require('minimist');
+var pkg = require('../package');
+var path = require('path');
+var s = require('printf');
+var ms = require('ms');
+var fs = require('fs');
+var mkdir = function(p) { fs.mkdirSync(p, { recursive: true }); };
+
+// parse args
+
+var argv = minimist(process.argv.slice(2), {
+  string: ['config'],
+  boolean: ['json', 'help', 'version'],
+  alias: { c: 'config', j: 'json', h: 'help', v: 'version' },
+  default: { config: 'minnx.conf' }
+});
+
+// version
+
+if (argv.version) {
+  console.log(pkg.version);
+  process.exit(0);
+}
+
+// help
+
+if (argv.help) {
+  console.log();
+  console.log('  Usage: minnx [options] [command] [names]');
+  console.log();
+  console.log('  Options:');
+  console.log();
+  console.log('    -c, --config <path>  load configuration [./minnx.conf]');
+  console.log('    -j, --json           output json');
+  console.log('    -v, --version        output version');
+  console.log('    -h, --help           output help');
+  console.log();
+  console.log('  Commands:');
+  console.log();
+  console.log('    status           output process status (default)');
+  console.log('    start   [names]  start all or specified processes');
+  console.log('    stop    [names]  stop all or specified processes');
+  console.log('    restart [names]  restart all or specified processes');
+  console.log();
+  process.exit(0);
+}
+
+// command
+
+var cmd = argv._.shift() || 'status';
+
+// config
+
+var confFile;
+try {
+  confFile = fs.readFileSync(argv.config, 'utf8');
+} catch (err) {
+  console.error('cannot read config file "' + argv.config + '"');
+  process.exit(1);
+}
+var conf = Group.parseConfig(confFile);
+
+// cd
+
+var dir = path.dirname(argv.config);
+process.chdir(dir);
+
+// ensure dirs exist
+
+conf.logs = conf.logs || 'logs';
+conf.pids = conf.pids || 'pids';
+mkdir(conf.logs);
+mkdir(conf.pids);
+
+// group
+
+var group = new Group(conf);
+
+// commands
+
+switch (cmd) {
+  case 'stop': return stop(argv._);
+  case 'start': return start(argv._);
+  case 'restart': return restart(argv._);
+  case 'status': return argv.json ? jsonstatus() : status();
+  default:
+    console.error('unknown command "' + cmd + '", run `minnx --help` for usage');
+    process.exit(1);
+}
+
+/**
+ * Start pros.
+ */
+
+function start(procs, fn) {
+  if (!fn) console.log();
+
+  group.on('start', function(proc){
+    console.log(s('\033[36m%15s\033[m : starting', proc.name));
+  });
+
+  group.on('running', function(proc){
+    console.log(s('\033[32m%15s\033[m : running', proc.name));
+  });
+
+  group.start(procs, function(err){
+    if (err) throw err;
+    if (fn) return fn();
+    console.log();
+  });
+}
+
+/**
+ * Stop procs.
+ */
+
+function stop(procs, fn) {
+  console.log();
+
+  group.on('stopping', function(proc){
+    console.log(s('\033[36m%15s\033[m : stopping : %s', proc.name, proc.pid || 0));
+  });
+
+  group.on('stop', function(proc){
+    console.log(s('\033[36m%15s\033[m : standby : %s', proc.name, proc.pid || 0));
+  });
+
+  // changed from `SIGQUIT`
+  group.stop(procs, null, function(err){
+    if (err) throw err;
+    if (fn) return fn();
+    console.log();
+  });
+}
+
+/**
+ * Restart procs.
+ */
+
+function restart(procs) {
+  stop(procs, function(){
+    start(procs, function(){
+      console.log(s('\033[36m%15s\033[m : complete', 'restart'));
+      console.log();
+    });
+  });
+}
+
+/**
+ * Output json status.
+ */
+
+function jsonstatus() {
+  var procs = {};
+
+  group.procs.forEach(function(proc){
+    var state = proc.state();
+
+    var uptime = 'alive' == state
+      ? Date.now() - proc.mtime()
+      : 0;
+
+    procs[proc.name] = {
+      state: state,
+      pid: proc.pid,
+      uptime: uptime
+    };
+  });
+
+  console.log(JSON.stringify(procs, null, 2));
+}
+
+/**
+ * Output process status.
+ */
+
+function status() {
+  console.log();
+  group.procs.forEach(function(proc){
+    var state = proc.state();
+
+    switch (state) {
+      case 'standby':
+        console.log(s('\033[33m%15s\033[m : %s', proc.name, state));
+        break;
+      case 'alive':
+        var uptime = ms(Date.now() - proc.mtime(), { long: true });
+        console.log(s('\033[32m%15s\033[m : %s : %s : %s', proc.name, proc.state(), proc.pid, uptime));
+        break;
+      case 'dead':
+        console.log(s('\033[31m%15s\033[m : %s', proc.name, proc.state(), proc.pid || 0));
+        break;
+    }
+  });
+  console.log();
+}
