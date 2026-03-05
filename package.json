@@ -12,7 +12,10 @@
     "printf": "^0.6.1"
   },
   "main": "./lib/minnx.js",
-  "bin": "./bin/minnx",
+  "bin": {
+    "minnx": "./bin/minnx",
+    "mx": "./bin/minnx"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sintaxi/minnx.git"
