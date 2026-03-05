@@ -324,26 +324,50 @@ function jsonstatus() {
  */
 
 function status() {
-  console.log();
-  group.procs.forEach(function(proc){
-    var state = proc.state();
+  // first pass: collect row data and measure column widths
+  var rows = [];
+  var widths = { name: 0, model: 0, state: 0, pid: 0, uptime: 0, cost: 0 };
 
-    switch (state) {
+  group.procs.forEach(function(proc) {
+    var state = proc.state();
+    var stats = proc.stats();
+    var row = {
+      name: proc.name,
+      model: (stats && stats.model) ? stats.model : '',
+      state: state,
+      pid: proc.pid ? String(proc.pid) : '',
+      uptime: state === 'alive' ? ms(Date.now() - proc.mtime(), { long: true }) : '',
+      cost: (stats && stats.cost) ? '$' + stats.cost.toFixed(4) : ''
+    };
+    rows.push(row);
+
+    for (var key in widths) {
+      if (row[key].length > widths[key]) widths[key] = row[key].length;
+    }
+  });
+
+  // second pass: render with padding
+  var nameW = Math.max(widths.name, 15);
+
+  console.log();
+  rows.forEach(function(row) {
+    var parts = [s('%' + nameW + 's', row.name)];
+
+    if (widths.model > 0) {
+      parts.push(s('%-' + widths.model + 's', row.model));
+    }
+
+    switch (row.state) {
       case 'standby':
-        console.log(s('\033[33m%15s\033[m : %s', proc.name, state));
+        console.log('\033[33m' + parts[0] + '\033[m : ' + (parts[1] ? '\033[90m' + parts[1] + '\033[m : ' : '') + row.state);
         break;
       case 'alive':
-        var uptime = ms(Date.now() - proc.mtime(), { long: true });
-        var stats = proc.stats();
-        if (stats && stats.model) {
-          var cost = stats.cost ? ' : $' + stats.cost.toFixed(4) : '';
-          console.log(s('\033[32m%15s\033[m : \033[90m%s\033[m : %s : %s : %s%s', proc.name, stats.model, proc.state(), proc.pid, uptime, cost));
-        } else {
-          console.log(s('\033[32m%15s\033[m : %s : %s : %s', proc.name, proc.state(), proc.pid, uptime));
-        }
+        var cells = [row.state, s('%-' + widths.pid + 's', row.pid), s('%-' + widths.uptime + 's', row.uptime)];
+        if (widths.cost > 0 && row.cost) cells.push(row.cost);
+        console.log('\033[32m' + parts[0] + '\033[m : ' + (parts[1] ? '\033[90m' + parts[1] + '\033[m : ' : '') + cells.join(' : '));
         break;
       case 'dead':
-        console.log(s('\033[31m%15s\033[m : %s', proc.name, proc.state(), proc.pid || 0));
+        console.log('\033[31m' + parts[0] + '\033[m : ' + (parts[1] ? '\033[90m' + parts[1] + '\033[m : ' : '') + row.state);
         break;
     }
   });

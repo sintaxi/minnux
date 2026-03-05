@@ -29,11 +29,21 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
+    writeStats(ctx.model?.id || null);
+  });
+
+  // Write stats helper
+  function writeStats(model: string | null) {
     writeFileSync(statsFile, JSON.stringify({
-      model: ctx.model?.id || null,
+      model: model,
       cost: Math.round(totalCost * 10000) / 10000,
       tokens: { input: totalInput, output: totalOutput }
     }) + "\n");
+  }
+
+  // Update stats file when model changes
+  pi.on("model_select", async (event) => {
+    writeStats(event.model?.id || null);
   });
 
   // --- Socket server for two-way communication ---
