@@ -1,5 +1,7 @@
-test/
-logs/
-minnx.conf
+test
+logs
+sockets
+stats
+minnix.conf
 .DS_Store
 *.swp

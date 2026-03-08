@@ -3,13 +3,13 @@
 **Date:** March 4, 2026  
 **Reviewer:** Code Review Agent  
 **Files Reviewed:**
-- `lib/minnx.js`
+- `lib/minnix.js`
 - `lib/group.js`
 - `lib/process.js`
 
 ---
 
-## lib/minnx.js
+## lib/minnix.js
 
 ### Issues
 

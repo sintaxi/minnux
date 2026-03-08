@@ -1,5 +1,5 @@
 {
-  "name": "minnx",
+  "name": "minnix",
   "version": "0.0.0",
   "description": "runner for agents",
   "author": "Brock Whitten <brock@sintaxi.com>",
@@ -9,17 +9,17 @@
     "ms": "^2.1.3",
     "printf": "^0.6.1"
   },
-  "main": "./lib/minnx.js",
+  "main": "./lib/minnix.js",
   "bin": {
-    "minnx": "./bin/minnx",
-    "mx": "./bin/minnx"
+    "minnix": "./bin/minnix",
+    "mx": "./bin/minnix"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sintaxi/minnx.git"
+    "url": "git+https://github.com/sintaxi/minnix.git"
   },
   "bugs": {
-    "url": "https://github.com/sintaxi/minnx/issues"
+    "url": "https://github.com/sintaxi/minnix/issues"
   },
-  "homepage": "https://github.com/sintaxi/minnx#readme"
+  "homepage": "https://github.com/sintaxi/minnix#readme"
 }

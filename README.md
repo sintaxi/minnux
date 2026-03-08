@@ -1,1 +1,1 @@
-# minnx
+# minnix
