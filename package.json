@@ -1,6 +1,6 @@
 {
-  "name": "mivix",
-  "version": "0.0.1",
+  "name": "minnux",
+  "version": "0.0.0",
   "description": "runner for agents",
   "author": "Brock Whitten <brock@sintaxi.com>",
   "license": "ISC",
@@ -12,17 +12,17 @@
     "ms": "^2.1.3",
     "printf": "^0.6.1"
   },
-  "main": "./lib/minnix.js",
+  "main": "./lib/minnux.js",
   "bin": {
-    "minnix": "./bin/minnix",
-    "mx": "./bin/minnix"
+    "minnux": "./bin/minnux",
+    "mx": "./bin/minnux"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sintaxi/minnix.git"
+    "url": "git+https://github.com/sintaxi/minnux.git"
   },
   "bugs": {
-    "url": "https://github.com/sintaxi/minnix/issues"
+    "url": "https://github.com/sintaxi/minnux/issues"
   },
-  "homepage": "https://github.com/sintaxi/minnix#readme"
+  "homepage": "https://github.com/sintaxi/minnux#readme"
 }

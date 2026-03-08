@@ -20,7 +20,7 @@ var argv = minimist(process.argv.slice(2), {
   string: ['config'],
   boolean: ['json', 'help', 'version'],
   alias: { c: 'config', j: 'json', h: 'help', v: 'version' },
-  default: { config: 'minnix.conf' }
+  default: { config: 'minnux.conf' }
 });
 
 // version
@@ -34,11 +34,11 @@ if (argv.version) {
 
 if (argv.help) {
   console.log();
-  console.log('  Usage: minnix [options] [command] [names]');
+  console.log('  Usage: minnux [options] [command] [names]');
   console.log();
   console.log('  Options:');
   console.log();
-  console.log('    -c, --config <path>  load configuration [./minnix.conf]');
+  console.log('    -c, --config <path>  load configuration [./minnux.conf]');
   console.log('    -j, --json           output json');
   console.log('    -v, --version        output version');
   console.log('    -h, --help           output help');
@@ -61,7 +61,7 @@ if (argv.help) {
 try {
   require('child_process').execSync('tmux -V', { stdio: 'ignore' });
 } catch (e) {
-  console.error('minnix requires tmux. Install with: brew install tmux');
+  console.error('minnux requires tmux. Install with: brew install tmux');
   process.exit(1);
 }
 
@@ -113,7 +113,7 @@ switch (cmd) {
   case 'ask': return ask(argv._);
   case 'status': return argv.json ? jsonstatus() : status();
   default:
-    console.error('unknown command "' + cmd + '", run `minnix --help` for usage');
+    console.error('unknown command "' + cmd + '", run `minnux --help` for usage');
     process.exit(1);
 }
 
@@ -178,7 +178,7 @@ function restart(procs) {
  */
 
 function chat(name) {
-  var session = group.session || 'minnix';
+  var session = group.session || 'minnux';
 
   // no name — attach to the session (navigate windows freely)
   if (!name) {
@@ -212,7 +212,7 @@ function send(args) {
   // determine if first arg is a process name or part of the message
   var resolved = resolveTarget(args);
   if (!resolved.message) {
-    console.error('usage: minnix send [name] <message>');
+    console.error('usage: minnux send [name] <message>');
     process.exit(1);
   }
 
@@ -238,7 +238,7 @@ function ask(args) {
   // determine if first arg is a process name or part of the message
   var resolved = resolveTarget(args);
   if (!resolved.message) {
-    console.error('usage: minnix ask [name] <message>');
+    console.error('usage: minnux ask [name] <message>');
     process.exit(1);
   }
 

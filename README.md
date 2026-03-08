@@ -1,1 +1,1 @@
-# minnix
+# minnux
