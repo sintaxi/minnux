@@ -34,6 +34,8 @@ if (argv.version) {
 
 if (argv.help) {
   console.log();
+  console.log('  minnux v' + pkg.version);
+  console.log();
   console.log('  Usage: minnux [options] [command] [names]');
   console.log();
   console.log('  Options:');
