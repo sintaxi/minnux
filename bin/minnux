@@ -7,7 +7,11 @@
 var Group = require('../');
 var minimist = require('minimist');
 var pkg = require('../package');
-var spawn = require('child_process').spawnSync;
+var spawn = require('child_process').spawn;
+var spawnSync = require('child_process').spawnSync;
+var exec = require('child_process').execSync;
+var net = require('net');
+var os = require('os');
 var path = require('path');
 var s = require('printf');
 var ms = require('ms');
@@ -54,6 +58,9 @@ if (argv.help) {
   console.log('    chat    [name]   attach to a running process');
   console.log('    send    [name] <message>  send a message to one or all agents');
   console.log('    ask     [name] <message>  ask one or all agents and print response');
+  console.log('    host                      share session via upterm tunnel');
+  console.log('    close                     terminate the upterm session');
+  console.log('    join    <session-id>      join a hosted session');
   console.log();
   process.exit(0);
 }
@@ -61,7 +68,7 @@ if (argv.help) {
 // check for tmux
 
 try {
-  require('child_process').execSync('tmux -V', { stdio: 'ignore' });
+  exec('tmux -V', { stdio: 'ignore' });
 } catch (e) {
   console.error('minnux requires tmux. Install with: brew install tmux');
   process.exit(1);
@@ -70,6 +77,10 @@ try {
 // command
 
 var cmd = argv._.shift() || 'status';
+
+// commands that don't require a config or group
+
+if (cmd === 'join') return join(argv._[0]);
 
 // config
 
@@ -113,6 +124,8 @@ switch (cmd) {
   case 'chat': return chat(argv._[0]);
   case 'send': return send(argv._);
   case 'ask': return ask(argv._);
+  case 'host': return host();
+  case 'close': return close();
   case 'status': return argv.json ? jsonstatus() : status();
   default:
     console.error('unknown command "' + cmd + '", run `minnux --help` for usage');
@@ -184,7 +197,7 @@ function chat(name) {
 
   // no name — attach to the session (navigate windows freely)
   if (!name) {
-    spawn('tmux', ['attach', '-t', session], { stdio: 'inherit' });
+    spawnSync('tmux', ['attach', '-t', session], { stdio: 'inherit' });
     return;
   }
 
@@ -201,7 +214,7 @@ function chat(name) {
   }
 
   var target = proc.target();
-  spawn('tmux', ['attach', '-t', target], { stdio: 'inherit' });
+  spawnSync('tmux', ['attach', '-t', target], { stdio: 'inherit' });
 }
 
 /**
@@ -209,8 +222,6 @@ function chat(name) {
  */
 
 function send(args) {
-  var exec = require('child_process').execSync;
-
   // determine if first arg is a process name or part of the message
   var resolved = resolveTarget(args);
   if (!resolved.message) {
@@ -235,8 +246,6 @@ function send(args) {
  */
 
 function ask(args) {
-  var net = require('net');
-
   // determine if first arg is a process name or part of the message
   var resolved = resolveTarget(args);
   if (!resolved.message) {
@@ -351,7 +360,7 @@ function resolveTarget(args) {
     if (!p.alive()) return false;
     try {
       var socketPath = path.resolve(path.join('sockets', p.name + '.sock'));
-      require('fs').accessSync(socketPath);
+      fs.accessSync(socketPath);
       return true;
     } catch (e) {
       return false;
@@ -367,6 +376,137 @@ function resolveTarget(args) {
 
 function shellQuote(str) {
   return "'" + str.replace(/'/g, "'\\''") + "'";
+}
+
+/**
+ * Return upterm admin socket paths from the upterm data directory.
+ *
+ * @return {Array}
+ */
+
+function uptermSockets() {
+  var dir = path.join(os.homedir(), 'Library', 'Application Support', 'upterm');
+  try {
+    return fs.readdirSync(dir)
+      .filter(function(f) { return /^[A-Za-z0-9]+\.sock$/.test(f); })
+      .map(function(f) { return path.join(dir, f); });
+  } catch (e) {
+    return [];
+  }
+}
+
+
+
+/**
+ * Share the tmux session via an upterm tunnel.
+ */
+
+function host() {
+  try {
+    exec('which upterm', { stdio: 'ignore' });
+  } catch (e) {
+    console.error('minnux host requires upterm. Install with:');
+    console.error('  brew install --cask owenthereal/upterm/upterm');
+    process.exit(1);
+  }
+
+  var forceCmd = 'tmux attach -t ' + group.session;
+  var linkPath = path.resolve('sockets/upterm.sock');
+  var pidPath = path.resolve('sockets/upterm.pid');
+  var before = uptermSockets();
+
+  var logFile = path.resolve(path.join(conf.logs, 'upterm.log'));
+  var errfd = fs.openSync(logFile, 'a');
+
+  var child = spawn('upterm', ['host', '--accept', '--force-command', forceCmd], {
+    stdio: ['ignore', 'ignore', errfd],
+    detached: true
+  });
+
+  fs.writeFileSync(pidPath, String(child.pid));
+  child.unref();
+
+  // poll for the new admin socket, then display session info and exit
+  var dead = false;
+  child.on('exit', function() { dead = true; });
+
+  var attempts = 0;
+  var interval = setInterval(function() {
+    if (dead) {
+      clearInterval(interval);
+      console.error('upterm exited unexpectedly — see ' + logFile);
+      try { fs.unlinkSync(pidPath); } catch (e) {}
+      process.exit(1);
+    }
+
+    var newSocket = uptermSockets().filter(function(s) { return before.indexOf(s) === -1; })[0];
+    if (newSocket) {
+      clearInterval(interval);
+      try { fs.unlinkSync(linkPath); } catch (e) {}
+      fs.symlinkSync(newSocket, linkPath);
+
+      // use `upterm session current` for clean, complete output
+      try {
+        var info = exec(
+          'upterm session current --admin-socket ' + shellQuote(newSocket),
+          { encoding: 'utf8' }
+        );
+        process.stdout.write(info.replace(/\r?\n/g, '\r\n'));
+      } catch (e) {}
+      console.log('Run `mx close` to end the session.');
+      fs.closeSync(errfd);
+      process.exit(0);
+    } else if (++attempts >= 20) {
+      clearInterval(interval);
+      console.error('timed out waiting for upterm session');
+      fs.closeSync(errfd);
+      process.exit(1);
+    }
+  }, 500);
+}
+
+/**
+ * Terminate the active upterm session.
+ */
+
+function close() {
+  try {
+    exec('which upterm', { stdio: 'ignore' });
+  } catch (e) {
+    console.error('minnux close requires upterm. Install with:');
+    console.error('  brew install --cask owenthereal/upterm/upterm');
+    process.exit(1);
+  }
+
+  var linkPath = path.resolve('sockets/upterm.sock');
+  var pidPath = path.resolve('sockets/upterm.pid');
+
+  var pid;
+  try {
+    pid = parseInt(fs.readFileSync(pidPath, 'utf8').trim(), 10);
+  } catch (e) {
+    console.error('no active upterm session found');
+    process.exit(1);
+  }
+
+  process.kill(pid, 'SIGKILL');
+  try { fs.unlinkSync(linkPath); } catch (e) {}
+  try { fs.unlinkSync(pidPath); } catch (e) {}
+  console.log('upterm session closed');
+}
+
+/**
+ * Join a hosted upterm session by session ID.
+ */
+
+function join(sessionId) {
+  if (!sessionId) {
+    console.error('usage: minnux join <session-id>');
+    process.exit(1);
+  }
+
+  var env = Object.assign({}, process.env, { TERM: 'xterm-256color' });
+  spawnSync('ssh', [sessionId + '@uptermd.upterm.dev'], { stdio: 'inherit', env: env });
 }
 
 /**
