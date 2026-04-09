@@ -111,6 +111,11 @@ process.chdir(dir);
 conf.logs = conf.logs || 'logs';
 mkdir(conf.logs);
 
+// ensure pids dir exists
+
+conf.pids = conf.pids || 'pids';
+mkdir(conf.pids);
+
 // group
 
 var group = new Group(conf);
@@ -205,6 +210,12 @@ function chat(name) {
   var proc = group.procs.filter(function(p) { return p.name === name; })[0];
   if (!proc) {
     console.error('unknown process "' + name + '"');
+    process.exit(1);
+  }
+
+  // reject monitor processes (no tmux window)
+  if (proc.mode === 'monitor') {
+    console.error('"' + name + '" is a background process (not interactive)');
     process.exit(1);
   }
 
