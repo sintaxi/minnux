@@ -55,26 +55,6 @@ export default function (pi: ExtensionAPI) {
     handler: detachHandler,
   });
 
-  // F1 — previous tmux window
-  pi.registerShortcut("f1", {
-    description: "Previous tmux window",
-    handler: async () => {
-      try {
-        execSync(`tmux previous-window -t ${quote(session)}`, { stdio: "pipe" });
-      } catch (e) {}
-    },
-  });
-
-  // F2 — next tmux window
-  pi.registerShortcut("f2", {
-    description: "Next tmux window",
-    handler: async () => {
-      try {
-        execSync(`tmux next-window -t ${quote(session)}`, { stdio: "pipe" });
-      } catch (e) {}
-    },
-  });
-
   function listWindows(): string[] {
     try {
       const out = execSync(
